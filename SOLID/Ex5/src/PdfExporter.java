@@ -8,7 +8,6 @@ public class PdfExporter extends Exporter {
     @Override
     public String getContentType() { return "application/pdf"; }
 
-    // Honor the legacy requirement of a 20-char limit for PDF specifically
     @Override
     public int getMaxContentLength() { 
         return 20; 
