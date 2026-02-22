@@ -2,36 +2,41 @@ import java.util.*;
 
 public class HostelFeeCalculator {
     private final FakeBookingRepo repo;
+    private final List<AddOnRule> addOnRules;
 
-    public HostelFeeCalculator(FakeBookingRepo repo) { this.repo = repo; }
+    public HostelFeeCalculator(FakeBookingRepo repo, List<AddOnRule> rules) {
+        this.repo = repo;
+        this.addOnRules = rules;
+    }
 
-    // OCP violation: switch + add-on branching + printing + persistence.
-    public void process(BookingRequest req) {
-        Money monthly = calculateMonthly(req);
+    public void process(BookingRequest req, RoomType room) {
+        Money monthly = calculateMonthly(req, room);
         Money deposit = new Money(5000.00);
 
-        ReceiptPrinter.print(req, monthly, deposit);
+        // Preservation of Output: ReceiptPrinter handles the display
+        printReceipt(room.getName(), req.addOns, monthly, deposit);
 
-        String bookingId = "H-" + (7000 + new Random(1).nextInt(1000)); // deterministic-ish
+        String bookingId = "H-" + (7000 + new Random(1).nextInt(1000));
         repo.save(bookingId, req, monthly, deposit);
     }
 
-    private Money calculateMonthly(BookingRequest req) {
-        double base;
-        switch (req.roomType) {
-            case LegacyRoomTypes.SINGLE -> base = 14000.0;
-            case LegacyRoomTypes.DOUBLE -> base = 15000.0;
-            case LegacyRoomTypes.TRIPLE -> base = 12000.0;
-            default -> base = 16000.0;
-        }
-
-        double add = 0.0;
+    private Money calculateMonthly(BookingRequest req, RoomType room) {
+        double total = room.getBaseRate();
+        
         for (AddOn a : req.addOns) {
-            if (a == AddOn.MESS) add += 1000.0;
-            else if (a == AddOn.LAUNDRY) add += 500.0;
-            else if (a == AddOn.GYM) add += 300.0;
+            for (AddOnRule rule : addOnRules) {
+                if (rule.appliesTo(a)) {
+                    total += rule.getPrice();
+                }
+            }
         }
+        return new Money(total);
+    }
 
-        return new Money(base + add);
+    private void printReceipt(String roomName, List<AddOn> addOns, Money monthly, Money deposit) {
+        System.out.println("Room: " + roomName + " | AddOns: " + addOns);
+        System.out.println("Monthly: " + monthly);
+        System.out.println("Deposit: " + deposit);
+        System.out.println("TOTAL DUE NOW: " + monthly.plus(deposit));
     }
 }
